@@ -7,14 +7,41 @@ exports.obtenerTodos = (req, res) => {
   });
 };
 
-exports.crear = (req, res) => {
-  const { nombre, precio } = req.body;
-  if (!nombre || !precio) return res.status(400).json({ error: 'Faltan campos' });
+exports.crearProductoConStock = (req, res) => {
+  const { nombre, precio, cantidad_stock, nombreTipoProducto } = req.body;
 
-  const query = 'INSERT INTO Producto (nombre, precio) VALUES (?, ?)';
-  db.run(query, [nombre, precio], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(201).json({ id: this.lastID, nombre, precio });
+  if (!nombre || !precio || cantidad_stock === undefined || nombreTipoProducto =='') {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+
+    const queryTipoProducto ='INSERT INTO TipoProducto(nombre) VALUES (?)';
+    db.run(queryTipoProducto,[nombre],function(err){
+        if (err) return res.status(500).json({ error: 'Error creando de tipo producto: ' + err.message });
+      })
+      const id_tipo_producto =this.lastID;
+  // 1. Insertar en Stock
+  const queryStock = 'INSERT INTO Stock (cantidad) VALUES (?)';
+  db.run(queryStock, [cantidad_stock], function (err) {
+    if (err) return res.status(500).json({ error: 'Error creando stock: ' + err.message });
+
+    const id_stock = this.lastID;
+
+    // 2. Insertar en Producto
+    const queryProducto = `
+      INSERT INTO Producto (nombre, precio, id_stock, id_tipo_producto)
+      VALUES (?, ?, ?, ?)
+    `;
+    db.run(queryProducto, [nombre, precio, id_stock, id_tipo_producto], function (err) {
+      if (err) return res.status(500).json({ error: 'Error creando producto: ' + err.message });
+
+      res.status(201).json({
+        id_producto: this.lastID,
+        nombre,
+        precio,
+        stock: cantidad_stock,
+        tipoProducto:nombreTipoProducto
+      });
+    });
   });
 };
 
